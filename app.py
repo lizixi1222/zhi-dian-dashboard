@@ -1,9 +1,9 @@
-"""
+    """
 智电未来科技有限公司——公交场站运营数据看板
-版本：2.0.0
+版本：3.0.0 - GitHub Releases数据版本
+深蓝色专业设计 · 全交互式看板
 """
 
-# ==================== 所有import必须放在最前面 ====================
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -11,72 +11,145 @@ import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
-import random
 
-# ==================== 调试信息（可选）====================
-# print(f"Streamlit版本: {st.__version__}")  # 如果需要可以取消注释
+# 导入数据加载器
+from data_loader import ZhiDianDataLoader
 
-# ==================== 页面配置（必须是第一个streamlit命令）====================
+# ==================== 页面配置 ====================
 st.set_page_config(
     page_title="智电未来 - 场站运营看板",
-    page_icon=" ",
+    page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# 后面是你的CSS样式和代码...
+# ==================== 初始化数据 ====================
+@st.cache_resource
+def init_data_loader():
+    """初始化数据加载器（只执行一次）"""
+    return ZhiDianDataLoader(owner="lizixi1222", repo="zhi-dian-dashboard")
 
-# ==================== 深蓝色+白色专业CSS ====================
+@st.cache_data(ttl=3600)
+def load_station_data(_loader):
+    """加载场站数据（缓存1小时）"""
+    return _loader.run_pipeline()
+
+@st.cache_data(ttl=3600)
+def load_hourly_data(_loader):
+    """加载小时数据（缓存1小时）"""
+    return _loader.get_hourly_profile()
+
+# 初始化
+loader = init_data_loader()
+
+# 加载数据（带进度提示）
+with st.spinner("正在从GitHub加载数据..."):
+    station_data = load_station_data(loader)
+    hours, load_data, pv_data = load_hourly_data(loader)
+
+
+# ==================== 专业CSS样式 ====================
 st.markdown("""
 <style>
     /* 全局字体 */
     * {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        box-sizing: border-box;
     }
     
-    /* 主背景 - 深蓝色 */
+    /* 主背景 - 深蓝色渐变 */
     .stApp {
-        background-color: #0A1A2F;
+        background: linear-gradient(135deg, #0A1A2F 0%, #1E3A8A 100%);
     }
     
-    /* 主内容区域 */
-    .main-content {
-        background-color: #F8FAFC;
-        border-radius: 24px;
-        padding: 24px;
-        margin: 16px;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    /* 主内容卡片 */
+    .main-card {
+        background: rgba(255, 255, 255, 0.98);
+        border-radius: 32px;
+        padding: 28px;
+        margin: 16px 0;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
     }
     
-    /* 主标题 */
-    .main-title {
+    /* 公司标识 */
+    .brand-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 24px;
+    }
+    
+    .brand-logo {
+        width: 48px;
+        height: 48px;
+        background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
         font-size: 24px;
         font-weight: 600;
-        color: #0A1A2F;
-        margin-bottom: 4px;
-        letter-spacing: -0.01em;
+        box-shadow: 0 8px 16px rgba(30, 58, 138, 0.3);
     }
     
-    .sub-title {
+    .brand-name {
+        font-size: 28px;
+        font-weight: 700;
+        color: #FFFFFF;
+        letter-spacing: -0.02em;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    .brand-sub {
         font-size: 14px;
-        color: #5F6B7A;
-        margin-bottom: 24px;
-        padding-bottom: 16px;
-        border-bottom: 1px solid #E2E8F0;
+        color: rgba(255,255,255,0.8);
+        margin-top: 4px;
     }
     
-    /* 指标卡片 - 白色卡片，深蓝色强调 */
+    /* 场站信息栏 */
+    .station-header {
+        background: rgba(255,255,255,0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 24px;
+        padding: 16px 24px;
+        margin: 20px 0 30px 0;
+        border: 1px solid rgba(255,255,255,0.1);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: white;
+    }
+    
+    .station-name {
+        font-size: 20px;
+        font-weight: 600;
+    }
+    
+    .station-badge {
+        background: rgba(59, 130, 246, 0.3);
+        padding: 6px 16px;
+        border-radius: 40px;
+        font-size: 13px;
+        border: 1px solid rgba(255,255,255,0.2);
+    }
+    
+    /* 指标卡片 - 毛玻璃效果 */
     .metric-card {
-        background: #FFFFFF;
-        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 24px;
         padding: 20px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-        border: 1px solid #E2E8F0;
-        transition: all 0.2s;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+        border: 1px solid rgba(30, 58, 138, 0.1);
+        transition: all 0.3s ease;
+        height: 100%;
     }
     
     .metric-card:hover {
-        box-shadow: 0 8px 16px rgba(30, 58, 138, 0.08);
+        transform: translateY(-4px);
+        box-shadow: 0 20px 30px rgba(30, 58, 138, 0.15);
         border-color: #1E3A8A;
     }
     
@@ -84,35 +157,45 @@ st.markdown("""
         font-size: 13px;
         color: #5F6B7A;
         font-weight: 500;
-        margin-bottom: 8px;
         text-transform: uppercase;
-        letter-spacing: 0.02em;
+        letter-spacing: 0.03em;
+        margin-bottom: 12px;
     }
     
     .metric-value {
-        font-size: 30px;
-        font-weight: 600;
+        font-size: 32px;
+        font-weight: 700;
         color: #0A1A2F;
         line-height: 1.2;
+        margin-bottom: 4px;
     }
     
-    .metric-delta {
+    .metric-trend {
+        display: flex;
+        align-items: center;
+        gap: 8px;
         font-size: 13px;
-        font-weight: 500;
-        margin-left: 8px;
-        padding: 2px 8px;
+    }
+    
+    .trend-up {
+        color: #10B981;
+        background: rgba(16, 185, 129, 0.1);
+        padding: 4px 8px;
         border-radius: 20px;
-        display: inline-block;
     }
     
-    .delta-positive {
-        background: #DFF0FA;
-        color: #1E3A8A;
+    .trend-down {
+        color: #EF4444;
+        background: rgba(239, 68, 68, 0.1);
+        padding: 4px 8px;
+        border-radius: 20px;
     }
     
-    .delta-neutral {
-        background: #F1F5F9;
+    .trend-neutral {
         color: #5F6B7A;
+        background: rgba(95, 107, 122, 0.1);
+        padding: 4px 8px;
+        border-radius: 20px;
     }
     
     /* 模块标题 */
@@ -120,353 +203,180 @@ st.markdown("""
         font-size: 18px;
         font-weight: 600;
         color: #0A1A2F;
-        margin: 28px 0 20px 0;
-        padding-bottom: 8px;
+        margin: 30px 0 20px 0;
+        padding-bottom: 12px;
         border-bottom: 2px solid #1E3A8A;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
     }
     
-    /* 卡片标题 */
-    .card-title {
-        font-size: 16px;
-        font-weight: 600;
-        color: #0A1A2F;
-        margin-bottom: 16px;
-    }
-    
-    /* 表格样式 */
-    .dataframe {
-        width: 100%;
-        border-collapse: collapse;
-        background: #FFFFFF;
-        border-radius: 16px;
-        overflow: hidden;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-    }
-    
-    .dataframe th {
-        text-align: left;
-        padding: 14px 16px;
-        color: #5F6B7A;
-        font-weight: 500;
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.02em;
-        background: #F8FAFC;
-        border-bottom: 1px solid #E2E8F0;
-    }
-    
-    .dataframe td {
-        padding: 14px 16px;
-        color: #0A1A2F;
-        font-size: 14px;
-        border-bottom: 1px solid #F1F5F9;
-    }
-    
-    /* 标签 */
-    .badge {
-        display: inline-block;
-        padding: 4px 10px;
-        font-size: 12px;
-        font-weight: 500;
-        border-radius: 20px;
-    }
-    
-    .badge-primary {
-        background: #DFF0FA;
-        color: #1E3A8A;
-    }
-    
-    .badge-success {
-        background: #E0F2F1;
-        color: #0D5E5E;
-    }
-    
-    .badge-warning {
-        background: #FFF3E0;
-        color: #B85C1A;
-    }
-    
-    /* 侧边栏 - 深蓝色背景 */
-    .css-1d391kg {
-        background: #0A1A2F;
-    }
-    
-    .sidebar-content {
-        padding: 24px 16px;
-        color: #FFFFFF;
-    }
-    
-    .sidebar-title {
-        font-size: 18px;
-        font-weight: 600;
-        color: #FFFFFF;
-        margin-bottom: 4px;
-    }
-    
-    .sidebar-subtitle {
+    .section-link {
         font-size: 13px;
-        color: #94A3B8;
-        margin-bottom: 24px;
+        color: #1E3A8A;
+        font-weight: 500;
+        cursor: pointer;
+    }
+    
+    /* 侧边栏 */
+    .css-1d391kg {
+        background: linear-gradient(180deg, #0A1A2F 0%, #0F2A4A 100%);
+    }
+    
+    .sidebar-brand {
+        padding: 24px 16px;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        margin-bottom: 20px;
     }
     
     .sidebar-item {
-        padding: 10px 16px;
-        margin: 4px 0;
+        padding: 12px 20px;
+        margin: 4px 8px;
+        border-radius: 16px;
+        color: rgba(255,255,255,0.7);
         font-size: 14px;
-        color: #CBD5E1;
-        cursor: pointer;
-        border-radius: 8px;
+        font-weight: 500;
         transition: all 0.2s;
+        cursor: pointer;
     }
     
     .sidebar-item:hover {
-        background: #1E3A8A;
-        color: #FFFFFF;
+        background: rgba(59, 130, 246, 0.2);
+        color: white;
     }
     
     .sidebar-item.active {
         background: #1E3A8A;
-        color: #FFFFFF;
-        font-weight: 500;
+        color: white;
     }
     
-    /* 分隔线 */
-    .divider {
-        height: 1px;
-        background: #253C5C;
-        margin: 20px 0;
+    .sidebar-info {
+        background: rgba(255,255,255,0.05);
+        border-radius: 16px;
+        padding: 20px;
+        margin: 20px 8px;
+        border: 1px solid rgba(255,255,255,0.1);
     }
     
-    /* 搜索框 */
-    .search-box {
-        background: #FFFFFF10;
-        border: 1px solid #253C5C;
-        border-radius: 8px;
-        padding: 10px 16px;
-        color: #FFFFFF;
-        width: 100%;
+    .info-item {
+        display: flex;
+        justify-content: space-between;
+        margin: 12px 0;
+        color: rgba(255,255,255,0.9);
         font-size: 14px;
     }
     
-    .search-box::placeholder {
-        color: #5F6B7A;
+    .info-label {
+        color: rgba(255,255,255,0.5);
+    }
+    
+    .info-value {
+        font-weight: 600;
     }
     
     /* 按钮 */
     .btn-primary {
         background: #1E3A8A;
-        color: #FFFFFF;
+        color: white;
         border: none;
-        border-radius: 8px;
-        padding: 10px 16px;
+        border-radius: 40px;
+        padding: 12px 24px;
         font-size: 14px;
-        font-weight: 500;
-        cursor: pointer;
+        font-weight: 600;
         width: 100%;
+        cursor: pointer;
         transition: all 0.2s;
     }
     
     .btn-primary:hover {
         background: #2563EB;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(30, 58, 138, 0.3);
     }
     
-    .btn-outline {
-        background: transparent;
-        border: 1px solid #E2E8F0;
-        border-radius: 8px;
-        padding: 6px 12px;
-        font-size: 13px;
-        color: #5F6B7A;
-        cursor: pointer;
-    }
-    
-    .btn-outline:hover {
-        background: #F8FAFC;
-        border-color: #1E3A8A;
-        color: #1E3A8A;
-    }
-    
-    /* 信息卡片 */
-    .info-card {
-        background: #F8FAFC;
-        border-radius: 16px;
+    /* 图表容器 */
+    .chart-container {
+        background: white;
+        border-radius: 24px;
         padding: 20px;
-        border: 1px solid #E2E8F0;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+        margin: 16px 0;
     }
     
-    /* 数值高亮 */
-    .highlight-value {
-        font-size: 36px;
-        font-weight: 600;
-        color: #1E3A8A;
-    }
-    
-    .highlight-label {
-        font-size: 14px;
-        color: #5F6B7A;
+    /* 分隔线 */
+    .divider {
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        margin: 20px 0;
     }
 </style>
 """, unsafe_allow_html=True)
 
 
-# ==================== 生成场站级数据（基于算法输出）====================
-
-def generate_station_data():
-    """
-    生成公交场站运营数据
-    基于算法输出的真实指标
-    """
-    # 核心指标（来自算法输出）
-    data = {
-        "station_name": "长沙格林香山公交场站",
-        "vehicle_count": 40,  # 同时充电能力
-        "total_vehicles": 150,  # 服务保障能力
-        
-        # 电量数据
-        "monthly_energy_cost": 245800,  # 本月电量支出
-        "monthly_energy_cost_change": -8.5,  # 环比变化
-        
-        "cumulative_savings": 42300,  # 平台累计节省
-        "avg_energy_consumption": 0.85,  # 百公里平均能耗
-        "energy_efficiency": 12,  # 优于行业标准百分比
-        
-        "battery_lifetime_value": 120000,  # 电池寿命延长收益
-        
-        # 光伏数据
-        "pv_generation_today": 3809,  # 今日光伏发电
-        "pv_self_use_rate": 10.2,  # 光伏自用率
-        "pv_total_month": 105700,  # 本月光伏发电
-        
-        # 储能数据
-        "battery_cycles": 809,  # 已循环次数
-        "battery_health": 73.9,  # 电池健康度
-        "battery_remaining_life": 6.7,  # 剩余寿命(年)
-        
-        # 成本数据
-        "daily_cost": -814,  # 日运行成本
-        "daily_savings": 1479,  # 日节省电费
-        "annual_savings": 54.0,  # 年节省电费(万元)
-        
-        # 环保数据
-        "daily_co2": 312,  # 日减排CO₂(kg)
-        "annual_co2": 86.5,  # 年减排CO₂(吨)
-        "carbon_income": 0.52,  # 碳交易收益(万元)
-        
-        # 投资回报
-        "total_investment": 800,  # 总投资(万元)
-        "annual_revenue": 76.2,  # 年收益(万元)
-        "annual_cost": 52.1,  # 年运营成本(万元)
-        "net_profit": 24.1,  # 年净利润(万元)
-        "payback_years": 8.3,  # 投资回收期(年)
-        "irr": 12.5,  # 内部收益率%
-    }
-    return data
-
-
-def generate_energy_trend():
-    """生成电量支出趋势"""
-    months = ['1月', '2月', '3月', '4月', '5月', '6月']
-    before = [268, 265, 259, 255, 252, 248]  # 优化前(千元)
-    after = [245, 242, 238, 235, 232, 228]   # 优化后(千元)
-    return months, before, after
-
-
-def generate_cost_structure():
-    """生成成本结构数据"""
-    categories = ['充电成本', '电池更换', '维护保养', '保险税费', '其他']
-    values = [42, 28, 15, 10, 5]  # 百分比
-    return categories, values
-
-
-def generate_savings_details():
-    """生成节约明细"""
-    details = {
-        "电费节省": 42300,
-        "电池寿命延长": 120000,
-        "维护成本降低": 18500,
-        "碳交易收益": 5200,
-        "total": 186000
-    }
-    return details
-
-
-def generate_roi_projection():
-    """生成10年收益预测"""
-    years = list(range(1, 11))
-    savings = [18.6, 38.5, 59.8, 82.5, 106.8, 132.6, 160.0, 189.0, 219.6, 252.0]
-    return years, savings
-
-
-def generate_battery_trend():
-    """生成电池健康度趋势"""
-    months = ['1月', '2月', '3月', '4月', '5月', '6月']
-    soh = [94.2, 93.8, 93.5, 93.1, 92.8, 92.4]
-    return months, soh
-
-
-# ==================== 生成数据 ====================
-station_data = generate_station_data()
-months, cost_before, cost_after = generate_energy_trend()
-cost_cats, cost_vals = generate_cost_structure()
-savings = generate_savings_details()
-roi_years, roi_savings = generate_roi_projection()
-soh_months, soh_values = generate_battery_trend()
-
-
 # ==================== 侧边栏 ====================
 with st.sidebar:
-    st.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
-    st.markdown('<div class="sidebar-title">智行电控</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sidebar-subtitle">公交场站运营报表</div>', unsafe_allow_html=True)
-    st.markdown("长沙格林香山公交场站")
-    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="sidebar-brand">
+        <div style="font-size: 24px; font-weight: 700; color: white; margin-bottom: 4px;">智电未来</div>
+        <div style="font-size: 13px; color: rgba(255,255,255,0.6);">ZhiDian Future Tech</div>
+    </div>
+    """, unsafe_allow_html=True)
     
     # 导航
-    pages = [
-        "场站总览",
-        "电量分析",
-        "电池健康",
-        "成本收益",
-        "环保效益",
-        "参数配置"
-    ]
-    
-    # 默认选中第一个
+    pages = ["场站总览", "电量分析", "电池健康", "成本收益", "环保效益", "参数配置"]
     selected_page = "场站总览"
     
     for page in pages:
-        if page == selected_page:
-            st.markdown(f'<div class="sidebar-item active">{page}</div>', unsafe_allow_html=True)
-        else:
-            st.markdown(f'<div class="sidebar-item">{page}</div>', unsafe_allow_html=True)
+        active_class = "active" if page == selected_page else ""
+        st.markdown(f'<div class="sidebar-item {active_class}">{page}</div>', unsafe_allow_html=True)
     
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
     
-    # 场站信息
-    st.markdown("##### 场站信息")
-    st.markdown(f"服务车辆: {station_data['total_vehicles']}辆")
-    st.markdown(f"同时充电: {station_data['vehicle_count']}辆")
-    st.markdown(f"光伏容量: 500 kWp")
-    st.markdown(f"储能容量: 500 kWh")
-    
-    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+    # 场站信息卡片
+    st.markdown(f"""
+    <div class="sidebar-info">
+        <div style="font-size: 16px; font-weight: 600; color: white; margin-bottom: 16px;">{station_data['station_name']}</div>
+        <div class="info-item"><span class="info-label">服务车辆</span><span class="info-value">{station_data['total_vehicles']}辆</span></div>
+        <div class="info-item"><span class="info-label">同时充电</span><span class="info-value">{station_data['vehicle_count']}辆</span></div>
+        <div class="info-item"><span class="info-label">光伏容量</span><span class="info-value">500 kWp</span></div>
+        <div class="info-item"><span class="info-label">储能容量</span><span class="info-value">500 kWh</span></div>
+        <div class="info-item"><span class="info-label">数据时间</span><span class="info-value">{station_data['date_range']}</span></div>
+    </div>
+    """, unsafe_allow_html=True)
     
     # 周期选择
-    st.markdown("##### 统计周期")
-    st.selectbox("", ["今日", "本周", "本月", "本季度", "本年"], label_visibility="collapsed")
+    st.markdown('<div style="color: rgba(255,255,255,0.7); font-size: 13px; margin: 16px 8px 8px;">统计周期</div>', unsafe_allow_html=True)
+    period = st.selectbox("", ["今日", "本周", "本月", "本季度", "本年"], label_visibility="collapsed", key="period")
     
-    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
-    st.markdown("##### 导出数据")
-    st.button("导出报表", use_container_width=True)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
+    # 导出按钮
+    st.button("📥 导出数据报表", use_container_width=True, type="primary")
 
 
 # ==================== 主内容区域 ====================
-st.markdown('<div class="main-content">', unsafe_allow_html=True)
 
-st.markdown('<div class="main-title">智行电控 · 公交场站运营看板</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">长沙格林香山公交场站 · TCO全生命周期成本分析</div>', unsafe_allow_html=True)
+# 品牌标识和场站信息
+col1, col2 = st.columns([1, 3])
+with col1:
+    st.markdown("""
+    <div class="brand-header">
+        <div class="brand-logo">⚡</div>
+        <div>
+            <div class="brand-name">智电未来</div>
+            <div class="brand-sub">ZhiDian Future Tech</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col2:
+    st.markdown(f"""
+    <div class="station-header">
+        <div>
+            <span class="station-name">{station_data['station_name']}</span>
+            <span class="station-badge" style="margin-left: 16px;">{station_data['total_records']:,}条数据记录</span>
+        </div>
+        <div style="color: rgba(255,255,255,0.8); font-size: 14px;">{datetime.now().strftime('%Y年%m月%d日')}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 # ==================== 场站总览页面 ====================
@@ -475,189 +385,126 @@ if selected_page == "场站总览":
     # 第一行：核心指标
     cols = st.columns(4)
     
-    metrics = [
-        ("本月电量支出", f"¥ {station_data['monthly_energy_cost']:,}", f"{station_data['monthly_energy_cost_change']}%", "positive"),
-        ("平台累计节省", f"¥ {station_data['cumulative_savings']:,}", "vs 无优化", "neutral"),
-        ("百公里平均能耗", f"{station_data['avg_energy_consumption']} kWh", f"-{station_data['energy_efficiency']}% vs 行业", "positive"),
-        ("电池寿命延长收益", f"¥ {station_data['battery_lifetime_value']:,}", "折算TCO价值", "neutral")
-    ]
-    
-    for i, (label, value, delta, delta_type) in enumerate(metrics):
-        with cols[i]:
-            delta_class = "delta-positive" if delta_type == "positive" else "delta-neutral"
-            st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-label">{label}</div>
-                <div>
-                    <span class="metric-value">{value}</span>
-                    <span class="metric-delta {delta_class}">{delta}</span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-    
-    # 第二行：今日运行数据
-    st.markdown('<div class="section-title">今日运行数据</div>', unsafe_allow_html=True)
-    
-    cols = st.columns(5)
-    daily_metrics = [
-        ("充电量", f"{554} kWh"),
-        ("光伏发电", f"{station_data['pv_generation_today']} kWh"),
-        ("运行成本", f"¥ {abs(station_data['daily_cost'])}", "负成本" if station_data['daily_cost'] < 0 else ""),
-        ("节省电费", f"¥ {station_data['daily_savings']}"),
-        ("减排CO₂", f"{station_data['daily_co2']} kg")
-    ]
-    
-    for i, (label, value, *extra) in enumerate(daily_metrics):
-        with cols[i]:
-            st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-label">{label}</div>
-                <div>
-                    <span class="metric-value">{value}</span>
-                    {f'<span style="font-size:12px; color:#5F6B7A; margin-left:4px;">{extra[0]}</span>' if extra else ''}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-    
-    # 成本效益对比图
-    st.markdown('<div class="section-title">电量支出趋势</div>', unsafe_allow_html=True)
-    
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=months, y=cost_before,
-        mode='lines+markers',
-        name='优化前',
-        line=dict(color='#94A3B8', width=2.5),
-        marker=dict(size=8, color='#94A3B8')
-    ))
-    fig.add_trace(go.Scatter(
-        x=months, y=cost_after,
-        mode='lines+markers',
-        name='优化后',
-        line=dict(color='#1E3A8A', width=3),
-        marker=dict(size=10, color='#1E3A8A')
-    ))
-    
-    fig.update_layout(
-        height=350,
-        margin=dict(l=40, r=40, t=20, b=40),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        yaxis_title="电量支出 (千元)",
-        hovermode='x unified',
-        plot_bgcolor='#FFFFFF',
-        paper_bgcolor='#FFFFFF',
-        font=dict(family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto", size=12)
-    )
-    
-    fig.update_xaxes(gridcolor='#F1F5F9', linecolor='#E2E8F0')
-    fig.update_yaxes(gridcolor='#F1F5F9', linecolor='#E2E8F0')
-    
-    st.plotly_chart(fig, use_container_width=True)
-    
-    # 第三行：成本结构和节约明细
-    col1, col2 = st.columns([1, 1])
-    
-    with col1:
-        st.markdown('<div class="section-title">TCO成本结构</div>', unsafe_allow_html=True)
-        
-        colors = ['#1E3A8A', '#3B82F6', '#94A3B8', '#CBD5E1', '#E2E8F0']
-        
-        fig_pie = go.Figure(data=[go.Pie(
-            labels=cost_cats, values=cost_vals, hole=0.4,
-            marker_colors=colors,
-            textinfo='label+percent',
-            textposition='outside',
-            textfont=dict(size=12),
-            showlegend=False
-        )])
-        fig_pie.update_layout(
-            height=320,
-            margin=dict(l=20, r=20, t=20, b=20),
-            plot_bgcolor='#FFFFFF',
-            paper_bgcolor='#FFFFFF'
-        )
-        st.plotly_chart(fig_pie, use_container_width=True)
-    
-    with col2:
-        st.markdown('<div class="section-title">成本节约明细</div>', unsafe_allow_html=True)
-        st.markdown(f"""
-        <div class="info-card">
-            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-                <tr>
-                    <td style="padding: 12px 0;">电费节省</td>
-                    <td style="text-align: right; font-weight: 600; color: #1E3A8A;">¥ {savings['电费节省']:,}</td>
-                </tr>
-                <tr>
-                    <td style="padding: 12px 0;">电池寿命延长</td>
-                    <td style="text-align: right; font-weight: 600; color: #1E3A8A;">¥ {savings['电池寿命延长']:,}</td>
-                </tr>
-                <tr>
-                    <td style="padding: 12px 0;">维护成本降低</td>
-                    <td style="text-align: right; font-weight: 600; color: #1E3A8A;">¥ {savings['维护成本降低']:,}</td>
-                </tr>
-                <tr>
-                    <td style="padding: 12px 0; border-bottom: 1px solid #E2E8F0;">碳交易收益</td>
-                    <td style="text-align: right; font-weight: 600; color: #1E3A8A; border-bottom: 1px solid #E2E8F0;">¥ {savings['碳交易收益']:,}</td>
-                </tr>
-                <tr>
-                    <td style="padding: 16px 0; font-weight: 600; font-size: 16px;">累计节约</td>
-                    <td style="text-align: right; font-weight: 700; color: #1E3A8A; font-size: 20px;">¥ {savings['total']:,}</td>
-                </tr>
-            </table>
-        </div>
-        """, unsafe_allow_html=True)
-
-
-# ==================== 电量分析页面 ====================
-
-elif selected_page == "电量分析":
-    st.markdown('<div class="section-title">电量分析</div>', unsafe_allow_html=True)
-    
-    # 电量指标
-    cols = st.columns(3)
     with cols[0]:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-label">本月总用电</div>
-            <div class="metric-value">158,400 kWh</div>
+            <div class="metric-label">📅 本月电量支出</div>
+            <div class="metric-value">¥ {station_data['monthly_energy_cost']:,}</div>
+            <div class="metric-trend"><span class="trend-down">↓ {abs(station_data['monthly_change'])}%</span> <span style="color:#5F6B7A;">环比下降</span></div>
         </div>
         """, unsafe_allow_html=True)
     
     with cols[1]:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-label">本月光伏发电</div>
-            <div class="metric-value">{station_data['pv_total_month']:,} kWh</div>
+            <div class="metric-label">💰 平台累计节省</div>
+            <div class="metric-value">¥ {station_data['cumulative_savings']:,}</div>
+            <div class="metric-trend"><span class="trend-neutral">vs 无优化</span></div>
         </div>
         """, unsafe_allow_html=True)
     
     with cols[2]:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-label">光伏自用率</div>
-            <div class="metric-value">{station_data['pv_self_use_rate']}%</div>
+            <div class="metric-label">⚡ 百公里平均能耗</div>
+            <div class="metric-value">{station_data['avg_energy_consumption']} kWh</div>
+            <div class="metric-trend"><span class="trend-up">↓ {station_data['energy_efficiency']}%</span> <span style="color:#5F6B7A;">优于行业</span></div>
         </div>
         """, unsafe_allow_html=True)
     
-    # 小时负荷曲线
-    st.markdown('<div class="section-title">典型日负荷曲线</div>', unsafe_allow_html=True)
+    with cols[3]:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-label">🔋 电池寿命延长收益</div>
+            <div class="metric-value">¥ {station_data['battery_lifetime_value']:,}</div>
+            <div class="metric-trend"><span class="trend-neutral">折算TCO价值</span></div>
+        </div>
+        """, unsafe_allow_html=True)
     
-    hours = list(range(24))
-    load = [5,3,2,1,1,2,8,25,35,30,25,22,20,25,30,35,40,45,50,48,42,30,20,10]
-    pv = [0,0,0,0,0,0,20,80,150,200,220,230,220,200,150,80,20,0,0,0,0,0,0,0]
+    # 第二行：今日运行数据
+    st.markdown('<div class="section-title">📊 今日运行数据 <span class="section-link">基于CSV真实数据</span></div>', unsafe_allow_html=True)
+    
+    cols = st.columns(5)
+    daily_metrics = [
+        ("充电量", f"{station_data['daily_energy']} kWh", "来自CSV"),
+        ("光伏发电", f"{station_data['pv_generation_today']} kWh", ""),
+        ("运行成本", f"¥ {abs(station_data['daily_cost'])}", "负成本运营"),
+        ("节省电费", f"¥ {station_data['daily_savings']}", ""),
+        ("减排CO₂", f"{station_data['daily_co2']} kg", "")
+    ]
+    
+    for i, (label, value, badge) in enumerate(daily_metrics):
+        with cols[i]:
+            badge_html = f'<span style="background: #1E3A8A; color: white; padding: 4px 8px; border-radius: 20px; font-size: 11px; margin-left: 8px;">{badge}</span>' if badge else ''
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">{label}</div>
+                <div style="display: flex; align-items: baseline;">
+                    <span class="metric-value">{value}</span>
+                    {badge_html}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    # 电量支出趋势图
+    st.markdown('<div class="section-title">📈 电量支出趋势</div>', unsafe_allow_html=True)
+    
+    months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
+    before = [268, 265, 259, 255, 252, 248, 245, 242, 238, 235, 232, 228]
+    after = [245, 242, 238, 235, 232, 228, 225, 222, 218, 215, 212, 208]
+    
+    with st.container():
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=months, y=before,
+            mode='lines+markers',
+            name='优化前',
+            line=dict(color='#94A3B8', width=2.5, dash='dot'),
+            marker=dict(size=8, color='#94A3B8')
+        ))
+        fig.add_trace(go.Scatter(
+            x=months, y=after,
+            mode='lines+markers',
+            name='优化后',
+            line=dict(color='#1E3A8A', width=3),
+            marker=dict(size=10, color='#1E3A8A')
+        ))
+        
+        fig.update_layout(
+            height=350,
+            margin=dict(l=40, r=40, t=20, b=40),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            yaxis_title="电量支出 (千元)",
+            hovermode='x unified',
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            font=dict(family="Inter, sans-serif", size=12)
+        )
+        
+        fig.update_xaxes(gridcolor='#E2E8F0', gridwidth=1, showgrid=True)
+        fig.update_yaxes(gridcolor='#E2E8F0', gridwidth=1, showgrid=True)
+        
+        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+    
+    # 第三行：小时负荷曲线
+    st.markdown('<div class="section-title">⏱️ 典型日负荷曲线</div>', unsafe_allow_html=True)
     
     fig = go.Figure()
     fig.add_trace(go.Scatter(
-        x=hours, y=load,
+        x=hours, y=load_data,
         mode='lines',
         name='充电负荷',
-        line=dict(color='#1E3A8A', width=3)
+        line=dict(color='#1E3A8A', width=3),
+        fill='tozeroy',
+        fillcolor='rgba(30, 58, 138, 0.1)'
     ))
     fig.add_trace(go.Scatter(
-        x=hours, y=pv,
+        x=hours, y=pv_data,
         mode='lines',
         name='光伏出力',
-        line=dict(color='#3B82F6', width=3)
+        line=dict(color='#3B82F6', width=3),
+        fill='tozeroy',
+        fillcolor='rgba(59, 130, 246, 0.1)'
     ))
     
     fig.update_layout(
@@ -665,235 +512,53 @@ elif selected_page == "电量分析":
         xaxis_title="小时",
         yaxis_title="功率 (kW)",
         hovermode='x unified',
-        plot_bgcolor='#FFFFFF',
-        paper_bgcolor='#FFFFFF',
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     
-    st.plotly_chart(fig, use_container_width=True)
-
-
-# ==================== 电池健康页面 ====================
-
-elif selected_page == "电池健康":
-    st.markdown('<div class="section-title">电池健康分析</div>', unsafe_allow_html=True)
+    fig.update_xaxes(gridcolor='#E2E8F0', tickmode='linear', tick0=0, dtick=2)
+    fig.update_yaxes(gridcolor='#E2E8F0')
     
-    cols = st.columns(3)
-    with cols[0]:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">电池健康度</div>
-            <div class="metric-value">{station_data['battery_health']}%</div>
-        </div>
-        """, unsafe_allow_html=True)
+    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
     
-    with cols[1]:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">已循环次数</div>
-            <div class="metric-value">{station_data['battery_cycles']}</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with cols[2]:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">剩余寿命</div>
-            <div class="metric-value">{station_data['battery_remaining_life']} 年</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # 健康度趋势
-    st.markdown('<div class="section-title">健康度变化趋势</div>', unsafe_allow_html=True)
-    
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=soh_months, y=soh_values,
-        mode='lines+markers',
-        line=dict(color='#1E3A8A', width=3),
-        marker=dict(size=8, color='#1E3A8A')
-    ))
-    
-    fig.update_layout(
-        height=300,
-        xaxis_title="月份",
-        yaxis_title="SOH (%)",
-        yaxis_range=[90, 95],
-        plot_bgcolor='#FFFFFF',
-        paper_bgcolor='#FFFFFF'
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
-
-
-# ==================== 成本收益页面 ====================
-
-elif selected_page == "成本收益":
-    st.markdown('<div class="section-title">投资回报分析</div>', unsafe_allow_html=True)
-    
-    # 投资回报指标
-    col1, col2, col3 = st.columns(3)
+    # 第四行：成本结构
+    col1, col2 = st.columns([1, 1])
     
     with col1:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">总投资</div>
-            <div class="metric-value">{station_data['total_investment']} 万元</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown('<div class="section-title">💰 TCO成本结构</div>', unsafe_allow_html=True)
+        
+        cost_cats = ['充电成本', '电池更换', '维护保养', '保险税费', '其他']
+        cost_vals = [42, 28, 15, 10, 5]
+        colors = ['#1E3A8A', '#3B82F6', '#94A3B8', '#CBD5E1', '#E2E8F0']
+        
+        fig_pie = go.Figure(data=[go.Pie(
+            labels=cost_cats, values=cost_vals, hole=0.45,
+            marker_colors=colors,
+            textinfo='label+percent',
+            textposition='outside',
+            textfont=dict(size=13, color='#0A1A2F'),
+            showlegend=False
+        )])
+        
+        fig_pie.update_layout(
+            height=320,
+            margin=dict(l=20, r=20, t=20, b=20),
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)'
+        )
+        
+        st.plotly_chart(fig_pie, use_container_width=True, config={'displayModeBar': False})
     
     with col2:
+        st.markdown('<div class="section-title">📋 成本节约明细</div>', unsafe_allow_html=True)
+        
         st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">年净利润</div>
-            <div class="metric-value">{station_data['net_profit']} 万元</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">投资回收期</div>
-            <div class="metric-value">{station_data['payback_years']} 年</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # 收益预测
-    st.markdown('<div class="section-title">10年累计收益预测</div>', unsafe_allow_html=True)
-    
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=roi_years, y=roi_savings,
-        mode='lines+markers',
-        line=dict(color='#1E3A8A', width=3),
-        marker=dict(size=8, color='#1E3A8A'),
-        fill='tozeroy',
-        fillcolor='rgba(30, 58, 138, 0.05)',
-        name='累计节约'
-    ))
-    
-    fig.update_layout(
-        xaxis_title="年份",
-        yaxis_title="节约金额 (万元)",
-        height=400,
-        plot_bgcolor='#FFFFFF',
-        paper_bgcolor='#FFFFFF'
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
-
-
-# ==================== 环保效益页面 ====================
-
-elif selected_page == "环保效益":
-    st.markdown('<div class="section-title">环保效益分析</div>', unsafe_allow_html=True)
-    
-    cols = st.columns(3)
-    
-    with cols[0]:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">日减排CO₂</div>
-            <div class="metric-value">{station_data['daily_co2']} kg</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with cols[1]:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">年减排CO₂</div>
-            <div class="metric-value">{station_data['annual_co2']} 吨</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with cols[2]:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">碳交易收益</div>
-            <div class="metric-value">¥ {station_data['carbon_income']*10000:.0f}</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # 环保等效
-    st.markdown('<div class="section-title">环保等效</div>', unsafe_allow_html=True)
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown(f"""
-        <div class="info-card" style="text-align: center;">
-            <div style="font-size: 42px; font-weight: 600; color: #1E3A8A;">{int(station_data['annual_co2']*50)}</div>
-            <div style="font-size: 14px; color: #5F6B7A;">相当于种树（棵/年）</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown(f"""
-        <div class="info-card" style="text-align: center;">
-            <div style="font-size: 42px; font-weight: 600; color: #1E3A8A;">{int(station_data['annual_co2']/2.3)}</div>
-            <div style="font-size: 14px; color: #5F6B7A;">相当于减少汽车（辆/年）</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-
-# ==================== 参数配置页面 ====================
-
-elif selected_page == "参数配置":
-    st.markdown('<div class="section-title">算法参数配置</div>', unsafe_allow_html=True)
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("""
-        <div class="info-card">
-            <h4 style="margin-top: 0; font-size: 16px; font-weight: 600; color: #1E3A8A;">系统参数</h4>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("**光伏容量**")
-        st.slider("", 100, 1000, 500, step=50, label_visibility="collapsed")
-        
-        st.markdown("**储能容量**")
-        st.slider("", 100, 1000, 500, step=50, label_visibility="collapsed")
-        
-        st.markdown("**储能功率**")
-        st.slider("", 50, 500, 200, step=25, label_visibility="collapsed")
-        
-        st.markdown("**变压器限值**")
-        st.slider("", 400, 1200, 800, step=100, label_visibility="collapsed")
-        
-        st.markdown("</div>", unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown("""
-        <div class="info-card">
-            <h4 style="margin-top: 0; font-size: 16px; font-weight: 600; color: #1E3A8A;">电价参数</h4>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("**低谷电价 (元)**")
-        st.number_input("", 0.3, 1.0, 0.63, 0.01, label_visibility="collapsed")
-        
-        st.markdown("**平段电价 (元)**")
-        st.number_input("", 0.5, 1.5, 0.95, 0.01, label_visibility="collapsed")
-        
-        st.markdown("**高峰电价 (元)**")
-        st.number_input("", 0.8, 2.0, 1.35, 0.01, label_visibility="collapsed")
-        
-        st.markdown("**上网电价 (元)**")
-        st.number_input("", 0.2, 0.5, 0.30, 0.01, label_visibility="collapsed")
-        
-        st.markdown("</div>", unsafe_allow_html=True)
-    
-    st.button("保存配置", use_container_width=True)
-
-
-# ==================== 关闭主内容区域 ====================
-st.markdown('</div>', unsafe_allow_html=True)
-
-
-# ==================== 页脚 ====================
-st.markdown("""
-<div style="text-align: center; color: #94A3B8; font-size: 12px; padding: 20px;">
-    智电未来科技有限公司 · 让每一度电都聪明 · 版本 2.0.0
-</div>
-
-""", unsafe_allow_html=True)
+        <div style="background: white; border-radius: 24px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); height: 320px;">
+            <div style="display: flex; flex-direction: column; height: 100%; justify-content: space-between;">
+                <div>
+                    <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #E2E8F0;">
+                        <span style="color: #5F6B7A;">电费节省</span>
+                        <span style="font-weight: 600; color: #1E3A8A;">¥ 42,300</span>
+                    </div>
+                    <div style="display

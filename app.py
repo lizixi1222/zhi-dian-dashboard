@@ -1,11 +1,9 @@
 """
 智电未来科技有限公司——公交场站运营数据看板
 版本：2.0.0
-配色方案：深蓝色 (#1E3A8A) + 白色 · 专业美观
 """
-import sys
-print(f"Python版本: {sys.version}")
-print(f"Streamlit版本: {st.__version__}")
+
+# ==================== 所有import必须放在最前面 ====================
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -15,13 +13,18 @@ from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
 import random
 
-# 页面配置
+# ==================== 调试信息（可选）====================
+# print(f"Streamlit版本: {st.__version__}")  # 如果需要可以取消注释
+
+# ==================== 页面配置（必须是第一个streamlit命令）====================
 st.set_page_config(
     page_title="智电未来 - 场站运营看板",
     page_icon=" ",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# 后面是你的CSS样式和代码...
 
 # ==================== 深蓝色+白色专业CSS ====================
 st.markdown("""
@@ -892,4 +895,5 @@ st.markdown("""
 <div style="text-align: center; color: #94A3B8; font-size: 12px; padding: 20px;">
     智电未来科技有限公司 · 让每一度电都聪明 · 版本 2.0.0
 </div>
+
 """, unsafe_allow_html=True)

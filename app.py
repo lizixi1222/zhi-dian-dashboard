@@ -1,4 +1,4 @@
-    """
+"""
 智电未来科技有限公司——公交场站运营数据看板
 版本：3.0.0 - GitHub Releases数据版本
 深蓝色专业设计 · 全交互式看板
@@ -561,4 +561,66 @@ if selected_page == "场站总览":
                         <span style="color: #5F6B7A;">电费节省</span>
                         <span style="font-weight: 600; color: #1E3A8A;">¥ 42,300</span>
                     </div>
-                    <div style="display
+                    <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #E2E8F0;">
+                        <span style="color: #5F6B7A;">电池寿命延长</span>
+                        <span style="font-weight: 600; color: #1E3A8A;">¥ 120,000</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #E2E8F0;">
+                        <span style="color: #5F6B7A;">维护成本降低</span>
+                        <span style="font-weight: 600; color: #1E3A8A;">¥ 18,500</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #E2E8F0;">
+                        <span style="color: #5F6B7A;">碳交易收益</span>
+                        <span style="font-weight: 600; color: #1E3A8A;">¥ 5,200</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding-top: 16px; border-top: 2px solid #1E3A8A;">
+                    <span style="font-weight: 600; font-size: 16px; color: #0A1A2F;">累计节约</span>
+                    <span style="font-weight: 700; font-size: 24px; color: #1E3A8A;">¥ 186,000</span>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+
+# ==================== 其他页面占位 ====================
+
+elif selected_page == "电池健康":
+    st.markdown('<div class="section-title">🔋 电池健康分析</div>', unsafe_allow_html=True)
+    
+    cols = st.columns(3)
+    
+    with cols[0]:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-label">电池健康度</div>
+            <div class="metric-value">{station_data['battery_health']}%</div>
+            <div style="color: #10B981;">良好</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with cols[1]:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-label">已循环次数</div>
+            <div class="metric-value">{station_data['battery_cycles']}</div>
+            <div style="color: #5F6B7A;">设计寿命 3500次</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with cols[2]:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-label">剩余寿命</div>
+            <div class="metric-value">{station_data['battery_remaining_life']} 年</div>
+            <div style="color: #5F6B7A;">预计更换 2032年</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+
+# ==================== 页脚 ====================
+st.markdown("""
+<div style="text-align: center; color: rgba(255,255,255,0.5); font-size: 12px; padding: 30px 0 20px 0;">
+    智电未来科技有限公司 · 让每一度电都聪明 · 版本 3.0.0
+</div>
+""", unsafe_allow_html=True)

@@ -152,7 +152,7 @@ class ZhiDianDataLoader:
         
         # 基础指标
         self.station_data = {
-            "station_name": "长沙格林香山公交场站",
+            "station_name": "智电未来公交场站",
             "vehicle_count": 40,
             "total_vehicles": 150,
             "daily_energy": round(today_energy, 0),
@@ -205,3 +205,4 @@ class ZhiDianDataLoader:
         self.generate_load_profile(df_clean)
         metrics = self.calculate_metrics()
         return metrics
+
